@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# macOS
+.DS_Store
+
+# Streamlit secrets (if any added later)
+.streamlit/secrets.toml
+
+# Backups
+*_backup.pptx
+test_output.pptx
