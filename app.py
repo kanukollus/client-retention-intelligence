@@ -208,9 +208,13 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 @st.cache_resource
 def load_all_artifacts():
     """Load pre-trained models, engineered features, SHAP values, and raw datasets."""
-    try:
+    def _read_disk_artifacts():
         best_model   = joblib.load(os.path.join(ARTIFACTS_DIR, "best_model.joblib"))
-        all_models   = joblib.load(os.path.join(ARTIFACTS_DIR, "all_models.joblib"))
+        # Gracefully handle cross-version pickle incompatibility for tree models in all_models
+        try:
+            all_models = joblib.load(os.path.join(ARTIFACTS_DIR, "all_models.joblib"))
+        except Exception:
+            all_models = {}
         cv_metrics   = joblib.load(os.path.join(ARTIFACTS_DIR, "cv_metrics.joblib"))
         fold_details = joblib.load(os.path.join(ARTIFACTS_DIR, "fold_details.joblib"))
         feature_names= joblib.load(os.path.join(ARTIFACTS_DIR, "feature_names.joblib"))
@@ -218,7 +222,10 @@ def load_all_artifacts():
         df           = joblib.load(os.path.join(ARTIFACTS_DIR, "processed_clients_df.joblib"))
         ledger       = joblib.load(os.path.join(ARTIFACTS_DIR, "raw_ledger.joblib"))
         metadata     = joblib.load(os.path.join(ARTIFACTS_DIR, "metadata.joblib"))
-        shap_explainer = joblib.load(os.path.join(ARTIFACTS_DIR, "shap_explainer.joblib"))
+        try:
+            shap_explainer = joblib.load(os.path.join(ARTIFACTS_DIR, "shap_explainer.joblib"))
+        except Exception:
+            shap_explainer = None
         shap_values  = joblib.load(os.path.join(ARTIFACTS_DIR, "shap_values.joblib"))
         return {
             "best_model": best_model,
@@ -233,9 +240,20 @@ def load_all_artifacts():
             "shap_explainer": shap_explainer,
             "shap_values": shap_values,
         }
-    except Exception as e:
-        st.error(f"Error loading artifacts: {e}. Please ensure `train_models.py` has been executed.")
-        st.stop()
+
+    try:
+        return _read_disk_artifacts()
+    except Exception as exc:
+        # Cross-version pickle mismatch or missing files in cloud deployment:
+        # Trigger fast auto-training in host environment (takes ~10s)
+        st.info("⚙️ Calibrating ML models for the host environment (one-time setup, ~10s)...")
+        try:
+            from src.models.train_models import train_and_export_pipeline
+            train_and_export_pipeline()
+            return _read_disk_artifacts()
+        except Exception as train_exc:
+            st.error(f"Error loading and calibrating artifacts: {train_exc}. Initial load error: {exc}")
+            st.stop()
 
 
 artifacts = load_all_artifacts()

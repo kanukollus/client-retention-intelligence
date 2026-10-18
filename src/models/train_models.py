@@ -254,7 +254,7 @@ def train_and_export_pipeline():
         processed_df["predicted_churn_prob"],
         bins=[-0.01, 0.40, 0.70, 1.01],
         labels=["Low (<40%)", "Medium (40-70%)", "High (>70%)"]
-    )
+    ).astype(str)
 
     # 4. SHAP Explainability
     explainer, shap_matrix, importance_df = compute_shap_explainability(
